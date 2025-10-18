@@ -22,7 +22,24 @@
 
 ## 🚀 快速开始
 
-### N8N 开源版用户（推荐）⭐
+### 🏢 自建 Bitbucket Server 用户 ⭐（新增）
+
+```bash
+1. 导入文件: bitbucket_pr_analysis_workflow_selfhosted.json
+2. 修改节点: "⚙️ 配置中心" 节点中的 6 个配置项
+   - BITBUCKET_API_URL (你的 Bitbucket Server 地址)
+   - BITBUCKET_PROJECT (项目 Key)
+   - BITBUCKET_REPO (仓库 slug)
+   - BITBUCKET_API_VERSION
+   - FEISHU_APP_TOKEN
+   - FEISHU_TABLE_ID
+3. 配置凭据: Bitbucket、千问、飞书（3 个）
+4. 测试并激活工作流
+```
+
+📖 **详细指南**: [QUICKSTART_SELFHOSTED_BITBUCKET.md](./QUICKSTART_SELFHOSTED_BITBUCKET.md) ← 自建版从这里开始
+
+### ☁️ Bitbucket Cloud + N8N 开源版用户
 
 ```bash
 1. 导入文件: bitbucket_pr_analysis_workflow_opensource.json
@@ -31,9 +48,9 @@
 4. 测试并激活工作流
 ```
 
-📖 **详细指南**: [QUICKSTART_OPENSOURCE.md](./QUICKSTART_OPENSOURCE.md) ← 从这里开始
+📖 **详细指南**: [QUICKSTART_OPENSOURCE.md](./QUICKSTART_OPENSOURCE.md)
 
-### N8N 企业版/Cloud 版用户
+### ☁️ Bitbucket Cloud + N8N 企业版/Cloud 版用户
 
 ```bash
 1. 设置变量: Settings → Variables（4 个环境变量）
@@ -44,9 +61,10 @@
 
 📖 **详细指南**: [QUICKSTART.md](./QUICKSTART.md)
 
-### 不确定使用哪个版本？
+### 🤔 不确定使用哪个版本？
 
-📊 **查看对比**: [VERSION_COMPARISON.md](./VERSION_COMPARISON.md) - 了解版本区别和如何选择
+📊 **查看**: [START_HERE.md](./START_HERE.md) - 选择适合你的版本  
+📊 **对比**: [VERSION_COMPARISON.md](./VERSION_COMPARISON.md) - 了解版本区别
 
 ---
 
@@ -56,15 +74,18 @@
 
 | 文件名 | 用途 | 适用版本 |
 |-------|------|---------|
-| **`bitbucket_pr_analysis_workflow_opensource.json`** ⭐ | 工作流配置（开源版） | **所有版本通用** |
-| `bitbucket_pr_analysis_workflow.json` | 工作流配置（企业版） | 企业版/Cloud版 |
+| **`bitbucket_pr_analysis_workflow_selfhosted.json`** ⭐ | 自建 Bitbucket Server | **所有 N8N 版本** |
+| `bitbucket_pr_analysis_workflow_opensource.json` | Bitbucket Cloud（开源版） | N8N 开源版 |
+| `bitbucket_pr_analysis_workflow.json` | Bitbucket Cloud（企业版） | N8N 企业版/Cloud |
 
 ### 文档文件
 
 | 文件名 | 说明 | 推荐阅读 |
 |-------|------|---------|
-| **`QUICKSTART_OPENSOURCE.md`** ⭐ | 开源版 5 分钟快速开始 | 开源版用户必读 |
-| `QUICKSTART.md` | 企业版快速开始指南 | 企业版用户必读 |
+| **`START_HERE.md`** ⭐ | 版本选择和入口指南 | **所有用户从这里开始** |
+| **`QUICKSTART_SELFHOSTED_BITBUCKET.md`** ⭐ | 自建版快速开始 | 自建 Bitbucket 用户必读 |
+| `QUICKSTART_OPENSOURCE.md` | Cloud 开源版快速开始 | Bitbucket Cloud + 开源 N8N |
+| `QUICKSTART.md` | Cloud 企业版快速开始 | Bitbucket Cloud + 企业 N8N |
 | `VERSION_COMPARISON.md` | 版本对比和选择指南 | 不确定版本时阅读 |
 | `WORKFLOW_CONFIG_README.md` | 详细配置文档 | 深入了解配置 |
 | `FILES_SUMMARY.md` | 文件清单和架构说明 | 了解项目结构 |
