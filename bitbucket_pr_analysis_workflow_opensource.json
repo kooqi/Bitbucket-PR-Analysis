@@ -1,0 +1,338 @@
+{
+  "name": "Bitbucket PR Analysis and Reporting (开源版)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 22 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "config-1",
+              "name": "BITBUCKET_WORKSPACE",
+              "value": "your_workspace_name",
+              "type": "string"
+            },
+            {
+              "id": "config-2",
+              "name": "BITBUCKET_REPO",
+              "value": "your_repository_name",
+              "type": "string"
+            },
+            {
+              "id": "config-3",
+              "name": "FEISHU_APP_TOKEN",
+              "value": "bascnxxxxxxxxxxxxxxxxxxxxx",
+              "type": "string"
+            },
+            {
+              "id": "config-4",
+              "name": "FEISHU_TABLE_ID",
+              "value": "tblxxxxxxxxxxxxxxxxxxxxx",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-node",
+      "name": "⚙️ 配置中心 (请修改这里)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 300],
+      "notes": "请在这个节点中修改你的配置信息：\n1. BITBUCKET_WORKSPACE - Bitbucket 工作空间名称\n2. BITBUCKET_REPO - 仓库名称\n3. FEISHU_APP_TOKEN - 飞书多维表格 App Token\n4. FEISHU_TABLE_ID - 飞书表格 ID"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.bitbucket.org/2.0/repositories/{{ $('⚙️ 配置中心 (请修改这里)').item.json.BITBUCKET_WORKSPACE }}/{{ $('⚙️ 配置中心 (请修改这里)').item.json.BITBUCKET_REPO }}/pullrequests",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "state",
+              "value": "OPEN"
+            },
+            {
+              "name": "q",
+              "value": "=created_on >= {{ $now.minus({days: 1}).toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bitbucket-get-prs",
+      "name": "Bitbucket Get PRs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [690, 300],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "bitbucket-basic-auth",
+          "name": "Bitbucket Credentials"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 解析 Bitbucket API 返回的 PR 数据\nconst prs = $input.item.json.values || [];\n\n// 获取配置信息，传递到后续节点\nconst config = {\n  BITBUCKET_WORKSPACE: $('⚙️ 配置中心 (请修改这里)').item.json.BITBUCKET_WORKSPACE,\n  BITBUCKET_REPO: $('⚙️ 配置中心 (请修改这里)').item.json.BITBUCKET_REPO,\n  FEISHU_APP_TOKEN: $('⚙️ 配置中心 (请修改这里)').item.json.FEISHU_APP_TOKEN,\n  FEISHU_TABLE_ID: $('⚙️ 配置中心 (请修改这里)').item.json.FEISHU_TABLE_ID\n};\n\nif (prs.length === 0) {\n  return [];\n}\n\n// 为每个 PR 创建一个输出项，同时携带配置信息\nreturn prs.map(pr => ({\n  json: {\n    pr_id: pr.id,\n    pr_title: pr.title,\n    pr_description: pr.description || '',\n    pr_author: pr.author?.display_name || 'Unknown',\n    pr_author_email: pr.author?.email_address || '',\n    pr_source_branch: pr.source?.branch?.name || '',\n    pr_destination_branch: pr.destination?.branch?.name || '',\n    pr_created_date: pr.created_on,\n    pr_updated_date: pr.updated_on,\n    pr_link: pr.links?.html?.href || '',\n    diff_url: pr.links?.diff?.href || '',\n    commits_url: pr.links?.commits?.href || '',\n    _config: config\n  }\n}));"
+      },
+      "id": "parse-prs",
+      "name": "Parse PRs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.diff_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "get-pr-diff",
+      "name": "Get PR Diff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 300],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "bitbucket-basic-auth",
+          "name": "Bitbucket Credentials"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 准备发送给千问的 prompt\nconst prData = $input.item.json;\nconst diffContent = prData.data || '';\n\n// 限制 diff 内容长度，避免 token 过多\nconst maxDiffLength = 8000;\nconst truncatedDiff = diffContent.length > maxDiffLength \n  ? diffContent.substring(0, maxDiffLength) + '\\n... (内容已截断)'\n  : diffContent;\n\nconst prompt = `你是一个资深的代码审查专家。请对以下 Pull Request 进行全面评估：\n\n**PR 信息：**\n- 标题：${prData.pr_title}\n- 描述：${prData.pr_description}\n- 作者：${prData.pr_author}\n- 源分支：${prData.pr_source_branch}\n- 目标分支：${prData.pr_destination_branch}\n\n**代码变更（Diff）：**\n\\`\\`\\`diff\n${truncatedDiff}\n\\`\\`\\`\n\n请从以下维度进行评估：\n1. **代码缺陷**：是否存在逻辑错误、边界条件问题、空指针等\n2. **注释程度**：代码注释是否充分、清晰\n3. **合理性**：代码设计是否合理、是否遵循最佳实践\n4. **安全性**：是否存在安全漏洞、敏感信息泄露等\n\n请按照以下 JSON 格式返回评估结果：\n{\n  \"issues\": [\n    {\n      \"level\": \"高|中|低\",\n      \"category\": \"代码缺陷|注释程度|合理性|安全性\",\n      \"description\": \"问题描述\",\n      \"location\": \"代码位置或文件名\",\n      \"suggestion\": \"改进建议\"\n    }\n  ],\n  \"overall_score\": \"0-100 分\",\n  \"summary\": \"总体评价\"\n}`;\n\nreturn [{\n  json: {\n    ...prData,\n    diff_content: truncatedDiff,\n    ai_prompt: prompt\n  }\n}];"
+      },
+      "id": "prepare-ai-prompt",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"qwen-max\",\n  \"input\": {\n    \"messages\": [\n      {\n        \"role\": \"system\",\n        \"content\": \"你是一个专业的代码审查专家，擅长发现代码问题并提供改进建议。\"\n      },\n      {\n        \"role\": \"user\",\n        \"content\": {{ $json.ai_prompt | quote }}\n      }\n    ]\n  },\n  \"parameters\": {\n    \"result_format\": \"message\",\n    \"temperature\": 0.3\n  }\n}",
+        "options": {}
+      },
+      "id": "call-qianwen-api",
+      "name": "Call Qianwen API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1570, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "qianwen-api-key",
+          "name": "Qianwen API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 解析千问返回的结果并进行分类\nconst item = $input.item.json;\nconst prData = item;\n\n// 提取 AI 返回的内容\nlet aiResponse = '';\ntry {\n  aiResponse = item.output?.choices?.[0]?.message?.content || '';\n} catch (e) {\n  aiResponse = '';\n}\n\n// 尝试解析 JSON 格式的 AI 响应\nlet evaluation = {\n  issues: [],\n  overall_score: 'N/A',\n  summary: 'AI 未能返回有效评估'\n};\n\ntry {\n  // 提取 JSON 部分（可能被包裹在 markdown 代码块中）\n  const jsonMatch = aiResponse.match(/```json\\s*([\\s\\S]*?)```/) || \n                    aiResponse.match(/\\{[\\s\\S]*\\}/);\n  \n  if (jsonMatch) {\n    const jsonStr = jsonMatch[1] || jsonMatch[0];\n    evaluation = JSON.parse(jsonStr);\n  }\n} catch (e) {\n  // 如果解析失败，创建一个默认的评估结果\n  evaluation.summary = aiResponse.substring(0, 500);\n}\n\n// 按照高中低维度分类\nconst categorizedIssues = {\n  high: [],\n  medium: [],\n  low: []\n};\n\nevaluation.issues.forEach(issue => {\n  const level = issue.level.toLowerCase();\n  if (level.includes('高')) {\n    categorizedIssues.high.push(issue);\n  } else if (level.includes('中')) {\n    categorizedIssues.medium.push(issue);\n  } else {\n    categorizedIssues.low.push(issue);\n  }\n});\n\n// 格式化输出数据\nconst output = {\n  pr_id: prData.pr_id,\n  pr_title: prData.pr_title,\n  pr_author: prData.pr_author,\n  pr_author_email: prData.pr_author_email,\n  pr_link: prData.pr_link,\n  pr_created_date: prData.pr_created_date,\n  evaluation_date: new Date().toISOString(),\n  overall_score: evaluation.overall_score,\n  summary: evaluation.summary,\n  high_issues_count: categorizedIssues.high.length,\n  medium_issues_count: categorizedIssues.medium.length,\n  low_issues_count: categorizedIssues.low.length,\n  high_issues: categorizedIssues.high,\n  medium_issues: categorizedIssues.medium,\n  low_issues: categorizedIssues.low,\n  all_issues: evaluation.issues,\n  _config: prData._config\n};\n\nreturn [{ json: output }];"
+      },
+      "id": "categorize-issues",
+      "name": "Categorize Issues",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1790, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 为每个问题级别创建一个飞书表格行\nconst data = $input.item.json;\nconst rows = [];\n\n// 创建高优先级问题的行\ndata.high_issues.forEach((issue, index) => {\n  rows.push({\n    json: {\n      pr_id: data.pr_id,\n      pr_title: data.pr_title,\n      pr_author: data.pr_author,\n      pr_link: data.pr_link,\n      evaluation_date: data.evaluation_date,\n      issue_level: '高',\n      issue_category: issue.category,\n      issue_description: issue.description,\n      issue_location: issue.location || 'N/A',\n      issue_suggestion: issue.suggestion || 'N/A',\n      overall_score: data.overall_score,\n      summary: index === 0 ? data.summary : '', // 只在第一行显示摘要\n      _config: data._config\n    }\n  });\n});\n\n// 创建中优先级问题的行\ndata.medium_issues.forEach((issue, index) => {\n  rows.push({\n    json: {\n      pr_id: data.pr_id,\n      pr_title: data.pr_title,\n      pr_author: data.pr_author,\n      pr_link: data.pr_link,\n      evaluation_date: data.evaluation_date,\n      issue_level: '中',\n      issue_category: issue.category,\n      issue_description: issue.description,\n      issue_location: issue.location || 'N/A',\n      issue_suggestion: issue.suggestion || 'N/A',\n      overall_score: data.overall_score,\n      summary: (data.high_issues.length === 0 && index === 0) ? data.summary : '',\n      _config: data._config\n    }\n  });\n});\n\n// 创建低优先级问题的行\ndata.low_issues.forEach((issue, index) => {\n  rows.push({\n    json: {\n      pr_id: data.pr_id,\n      pr_title: data.pr_title,\n      pr_author: data.pr_author,\n      pr_link: data.pr_link,\n      evaluation_date: data.evaluation_date,\n      issue_level: '低',\n      issue_category: issue.category,\n      issue_description: issue.description,\n      issue_location: issue.location || 'N/A',\n      issue_suggestion: issue.suggestion || 'N/A',\n      overall_score: data.overall_score,\n      summary: (data.high_issues.length === 0 && data.medium_issues.length === 0 && index === 0) ? data.summary : '',\n      _config: data._config\n    }\n  });\n});\n\n// 如果没有任何问题，创建一个表示无问题的行\nif (rows.length === 0) {\n  rows.push({\n    json: {\n      pr_id: data.pr_id,\n      pr_title: data.pr_title,\n      pr_author: data.pr_author,\n      pr_link: data.pr_link,\n      evaluation_date: data.evaluation_date,\n      issue_level: '无',\n      issue_category: '无问题',\n      issue_description: '代码审查未发现明显问题',\n      issue_location: 'N/A',\n      issue_suggestion: 'N/A',\n      overall_score: data.overall_score,\n      summary: data.summary,\n      _config: data._config\n    }\n  });\n}\n\nreturn rows;"
+      },
+      "id": "format-for-feishu",
+      "name": "Format for Feishu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2010, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://open.feishu.cn/open-apis/bitable/v1/apps/{{ $json._config.FEISHU_APP_TOKEN }}/tables/{{ $json._config.FEISHU_TABLE_ID }}/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"fields\": {\n    \"PR ID\": {{ $json.pr_id | quote }},\n    \"PR 标题\": {{ $json.pr_title | quote }},\n    \"提交者\": {{ $json.pr_author | quote }},\n    \"PR 链接\": {{ $json.pr_link | quote }},\n    \"评估日期\": {{ $json.evaluation_date | quote }},\n    \"问题级别\": {{ $json.issue_level | quote }},\n    \"问题类别\": {{ $json.issue_category | quote }},\n    \"问题描述\": {{ $json.issue_description | quote }},\n    \"代码位置\": {{ $json.issue_location | quote }},\n    \"改进建议\": {{ $json.issue_suggestion | quote }},\n    \"总体评分\": {{ $json.overall_score | quote }},\n    \"总结\": {{ $json.summary | quote }}\n  }\n}",
+        "options": {}
+      },
+      "id": "write-to-feishu",
+      "name": "Write to Feishu Table",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2230, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "feishu-access-token",
+          "name": "Feishu Access Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "⚙️ 配置中心 (请修改这里)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ 配置中心 (请修改这里)": {
+      "main": [
+        [
+          {
+            "node": "Bitbucket Get PRs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitbucket Get PRs": {
+      "main": [
+        [
+          {
+            "node": "Parse PRs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse PRs": {
+      "main": [
+        [
+          {
+            "node": "Get PR Diff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PR Diff": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call Qianwen API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Qianwen API": {
+      "main": [
+        [
+          {
+            "node": "Categorize Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Categorize Issues": {
+      "main": [
+        [
+          {
+            "node": "Format for Feishu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for Feishu": {
+      "main": [
+        [
+          {
+            "node": "Write to Feishu Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-18T00:00:00.000Z",
+  "versionId": "1.115.3"
+}
