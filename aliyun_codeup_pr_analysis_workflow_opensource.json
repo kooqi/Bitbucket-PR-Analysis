@@ -60,7 +60,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://devops.aliyuncs.com/api/v4/projects/{{ $('⚙️ 配置中心 (请修改这里)').item.json.ALIYUN_REPO_ID }}/merge_requests",
+        "url": "=https://codeup.aliyun.com/api/v4/projects/{{ $('⚙️ 配置中心 (请修改这里)').item.json.ALIYUN_REPO_ID }}/merge_requests",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
@@ -96,7 +96,8 @@
           "id": "aliyun-codeup-token",
           "name": "Aliyun Codeup Access Token"
         }
-      }
+      },
+      "notes": "阿里云云效 Codeup GitLab 兼容 API\n- API 版本: v4\n- 认证方式: Private-Token (Header Auth)\n- 参考: https://help.aliyun.com/document_detail/153710.html"
     },
     {
       "parameters": {
@@ -111,7 +112,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://devops.aliyuncs.com/api/v4/projects/{{ $json.mr_project_id }}/merge_requests/{{ $json.mr_id }}/changes",
+        "url": "=https://codeup.aliyun.com/api/v4/projects/{{ $json.mr_project_id }}/merge_requests/{{ $json.mr_id }}/changes",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {
@@ -133,7 +134,8 @@
           "id": "aliyun-codeup-token",
           "name": "Aliyun Codeup Access Token"
         }
-      }
+      },
+      "notes": "获取 MR 的代码变更详情\n使用 GitLab v4 API 的 changes 端点"
     },
     {
       "parameters": {

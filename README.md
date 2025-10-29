@@ -1,6 +1,8 @@
-# N8N Bitbucket PR 自动分析工作流
+# N8N PR 自动分析工作流
 
-> 🎯 每天自动分析 Bitbucket PR，使用千问 AI 评估代码质量，将结果输出到飞书多维表格
+> 🎯 每天自动分析 PR/MR，使用千问 AI 评估代码质量，将结果输出到飞书多维表格
+> 
+> 支持平台：Bitbucket Cloud、Bitbucket Server、阿里云云效 Codeup
 
 [![N8N Version](https://img.shields.io/badge/N8N-1.115.3-blue.svg)](https://n8n.io/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -61,6 +63,21 @@
 
 📖 **详细指南**: [QUICKSTART.md](./QUICKSTART.md)
 
+### ☁️ 阿里云云效 Codeup + N8N 开源版用户 ⭐（新增）
+
+```bash
+1. 导入文件: aliyun_codeup_pr_analysis_workflow_opensource.json
+2. 修改节点: "⚙️ 配置中心" 节点中的 4 个配置项
+   - ALIYUN_ORGANIZATION_ID (企业 ID)
+   - ALIYUN_REPO_ID (项目 ID)
+   - FEISHU_APP_TOKEN
+   - FEISHU_TABLE_ID
+3. 配置凭据: 阿里云云效、千问、飞书（3 个）
+4. 测试并激活工作流
+```
+
+📖 **详细指南**: [ALIYUN_CODEUP_SETUP_GUIDE.md](./ALIYUN_CODEUP_SETUP_GUIDE.md) ← 阿里云云效用户必读
+
 ### 🤔 不确定使用哪个版本？
 
 📊 **查看**: [START_HERE.md](./START_HERE.md) - 选择适合你的版本  
@@ -75,6 +92,7 @@
 | 文件名 | 用途 | 适用版本 |
 |-------|------|---------|
 | **`bitbucket_pr_analysis_workflow_selfhosted.json`** ⭐ | 自建 Bitbucket Server | **所有 N8N 版本** |
+| **`aliyun_codeup_pr_analysis_workflow_opensource.json`** ⭐ | 阿里云云效 Codeup | **N8N 开源版** |
 | `bitbucket_pr_analysis_workflow_opensource.json` | Bitbucket Cloud（开源版） | N8N 开源版 |
 | `bitbucket_pr_analysis_workflow.json` | Bitbucket Cloud（企业版） | N8N 企业版/Cloud |
 
@@ -84,6 +102,7 @@
 |-------|------|---------|
 | **`START_HERE.md`** ⭐ | 版本选择和入口指南 | **所有用户从这里开始** |
 | **`QUICKSTART_SELFHOSTED_BITBUCKET.md`** ⭐ | 自建版快速开始 | 自建 Bitbucket 用户必读 |
+| **`ALIYUN_CODEUP_SETUP_GUIDE.md`** ⭐ | 阿里云云效配置指南 | 阿里云云效用户必读 |
 | `QUICKSTART_OPENSOURCE.md` | Cloud 开源版快速开始 | Bitbucket Cloud + 开源 N8N |
 | `QUICKSTART.md` | Cloud 企业版快速开始 | Bitbucket Cloud + 企业 N8N |
 | `VERSION_COMPARISON.md` | 版本对比和选择指南 | 不确定版本时阅读 |
@@ -96,7 +115,18 @@
 
 ## ⚙️ 配置要点
 
-### 开源版配置（在 workflow 中）
+### 阿里云云效配置（在 workflow 中）
+
+双击 **"⚙️ 配置中心 (请修改这里)"** 节点，修改：
+
+```javascript
+ALIYUN_ORGANIZATION_ID  →  your_organization_id  // 企业 ID
+ALIYUN_REPO_ID          →  12345                // 项目 ID（数字）
+FEISHU_APP_TOKEN        →  bascnxxxxxxxxxxxxxxxxxxxxx
+FEISHU_TABLE_ID         →  tblxxxxxxxxxxxxxxxxxxxxx
+```
+
+### Bitbucket 开源版配置（在 workflow 中）
 
 双击 **"⚙️ 配置中心 (请修改这里)"** 节点，修改：
 
@@ -107,7 +137,7 @@ FEISHU_APP_TOKEN     →  bascnxxxxxxxxxxxxxxxxxxxxx
 FEISHU_TABLE_ID      →  tblxxxxxxxxxxxxxxxxxxxxx
 ```
 
-### 企业版配置（在 Settings 中）
+### Bitbucket 企业版配置（在 Settings 中）
 
 进入 **Settings → Variables**，添加：
 
@@ -122,9 +152,41 @@ FEISHU_TABLE_ID=your_feishu_table_id
 
 ## 🔐 凭据配置
 
-需要配置 3 个凭据：
+### 阿里云云效版本（需要配置 3 个凭据）
 
-### 1️⃣ Bitbucket Credentials (Basic Auth)
+#### 1️⃣ Aliyun Codeup Access Token (Header Auth)
+
+```
+Header Name: PRIVATE-TOKEN
+Header Value: your_private_token_here
+```
+
+📝 **获取方法**: https://codeup.aliyun.com/ → 个人设置 → 访问令牌
+- 权限: `api`, `read_repository`, `read_api`
+
+#### 2️⃣ Qianwen API Key (Header Auth)
+
+```
+Header Name: Authorization
+Header Value: Bearer sk-your-api-key
+```
+
+📝 **获取方法**: https://dashscope.console.aliyun.com/ → API-KEY 管理
+
+#### 3️⃣ Feishu Access Token (Header Auth)
+
+```
+Header Name: Authorization
+Header Value: Bearer t-your-access-token
+```
+
+📝 **获取方法**: https://open.feishu.cn/ → 创建应用 → 获取 tenant_access_token
+
+---
+
+### Bitbucket 版本（需要配置 3 个凭据）
+
+#### 1️⃣ Bitbucket Credentials (Basic Auth)
 
 ```
 Username: 你的 Bitbucket 用户名
@@ -134,7 +196,7 @@ Password: Bitbucket App Password
 📝 **获取方法**: Bitbucket → Settings → App passwords → Create
 - 权限: `pullrequest:read`, `repository:read`
 
-### 2️⃣ Qianwen API Key (Header Auth)
+#### 2️⃣ Qianwen API Key (Header Auth)
 
 ```
 Header Name: Authorization
@@ -160,12 +222,31 @@ Header Value: Bearer t-your-access-token
 
 在飞书中创建多维表格，添加以下字段（**字段名必须完全一致**）：
 
+### Bitbucket 版本字段
+
 | 字段名 | 类型 | 说明 |
 |-------|-----|------|
 | **PR ID** | 文本 | Pull Request ID |
 | **PR 标题** | 文本 | PR 标题 |
 | **提交者** | 文本 | PR 作者 |
 | **PR 链接** | URL | PR 链接 |
+| **评估日期** | 日期时间 | 评估时间 |
+| **问题级别** | 单选 | 高/中/低/无 |
+| **问题类别** | 单选 | 代码缺陷/注释程度/合理性/安全性/无问题 |
+| **问题描述** | 多行文本 | 问题详细描述 |
+| **代码位置** | 文本 | 代码位置 |
+| **改进建议** | 多行文本 | 改进建议 |
+| **总体评分** | 文本 | 0-100 分 |
+| **总结** | 多行文本 | 总体评价 |
+
+### 阿里云云效版本字段
+
+| 字段名 | 类型 | 说明 |
+|-------|-----|------|
+| **MR ID** | 文本 | Merge Request ID |
+| **MR 标题** | 文本 | MR 标题 |
+| **提交者** | 文本 | MR 作者 |
+| **MR 链接** | URL | MR 链接 |
 | **评估日期** | 日期时间 | 评估时间 |
 | **问题级别** | 单选 | 高/中/低/无 |
 | **问题类别** | 单选 | 代码缺陷/注释程度/合理性/安全性/无问题 |
